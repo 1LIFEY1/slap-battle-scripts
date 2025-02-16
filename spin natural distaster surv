@@ -1,0 +1,174 @@
+-- Gui to Lua
+-- Version: 3.2
+
+-- Instances:
+
+local ScreenGui = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local Spin = Instance.new("TextButton")
+local TextLabel = Instance.new("TextLabel")
+local TextBox = Instance.new("TextBox")
+local Stop = Instance.new("TextButton")
+x = nil
+--Properties:
+
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+Instance.new("UIDragDetector",Frame)
+Frame.Parent = ScreenGui
+Frame.BackgroundColor3 = Color3.fromRGB(57, 57, 57)
+Frame.BackgroundTransparency = 0.300
+Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Frame.BorderSizePixel = 0
+Frame.Position = UDim2.new(0.167414054, 0, 0.314070344, 0)
+Frame.Size = UDim2.new(0, 140, 0, 271)
+
+Spin.Parent = Frame
+Spin.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Spin.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Spin.BorderSizePixel = 0
+Spin.Position = UDim2.new(0.100053407, 0, 0.407980829, 0)
+Spin.Size = UDim2.new(0, 111, 0, 34)
+Spin.Font = Enum.Font.SourceSans
+Spin.Text = "SPIN!"
+Spin.TextColor3 = Color3.fromRGB(255, 255, 255)
+Spin.TextSize = 20.000
+
+TextLabel.Parent = Frame
+TextLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TextLabel.BackgroundTransparency = 1.000
+TextLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
+TextLabel.BorderSizePixel = 0
+TextLabel.Position = UDim2.new(-0.00401436957, 0, -0.00327281328, 0)
+TextLabel.Size = UDim2.new(0, 140, 0, 50)
+TextLabel.Font = Enum.Font.SourceSansBold
+TextLabel.Text = "Radius"
+TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextLabel.TextSize = 25.000
+
+TextBox.Parent = Frame
+TextBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TextBox.BorderColor3 = Color3.fromRGB(0, 0, 0)
+TextBox.BorderSizePixel = 0
+TextBox.Position = UDim2.new(0.178955734, 0, 0.179819703, 0)
+TextBox.Size = UDim2.new(0, 89, 0, 30)
+TextBox.Font = Enum.Font.SourceSans
+TextBox.Text = "number to pick how wide the circle is"
+TextBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+TextBox.TextSize = 14.000
+
+Stop.Parent = Frame
+Stop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Stop.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Stop.BorderSizePixel = 0
+Stop.Position = UDim2.new(0.100053407, 0, 0.629383028, 0)
+Stop.Size = UDim2.new(0, 111, 0, 34)
+Stop.Font = Enum.Font.SourceSans
+Stop.Text = "STOP"
+Stop.TextColor3 = Color3.fromRGB(255, 255, 255)
+Stop.TextSize = 20.000
+
+function get_radius()
+	return tonumber(TextBox.Text)
+end
+
+Spin.MouseButton1Up:Connect(function()
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+
+	local player = Players.LocalPlayer
+	local character = player.Character or player.CharacterAdded:Wait()
+	local head = character:WaitForChild("Head")
+
+	local function spinPartsAroundPlayer()
+		local orbitParts = {}
+
+		-- Collect all valid parts
+		for _, part in pairs(workspace:GetDescendants()) do
+			if part:IsA("BasePart") and not part.Anchored and not part:IsDescendantOf(character) then
+				local ignoredNames = {
+					["Torso"] = true, ["Head"] = true, 
+					["Right Arm"] = true, ["Left Arm"] = true, 
+					["Right Leg"] = true, ["Left Leg"] = true, 
+					["HumanoidRootPart"] = true
+				}
+
+				if not ignoredNames[part.Name] then
+					-- Remove existing forces
+					for _, child in pairs(part:GetChildren()) do
+						if child:IsA("BodyPosition") or child:IsA("BodyGyro") then
+							child:Destroy()
+						end
+					end
+
+					-- Add BodyPosition and BodyGyro
+					local bodyPos = Instance.new("BodyPosition", part)
+					bodyPos.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+					bodyPos.D = 10
+					bodyPos.P = 10000000
+
+					local bodyGyro = Instance.new("BodyGyro", part)
+					bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+					bodyGyro.P = 30000000
+
+					table.insert(orbitParts, {part = part, bodyPos = bodyPos, bodyGyro = bodyGyro})
+				end
+			end
+		end
+
+		-- Make parts orbit around the player
+		local radius =  get_radius()
+		local angleStep = (2 * math.pi) / #orbitParts
+		local time = 0
+
+		x = RunService.Heartbeat:Connect(function(deltaTime)
+			--heavy math stuff CHATGPT
+			time = time + deltaTime * 2 -- Adjust speed multiplier here
+
+			for i, data in pairs(orbitParts) do
+				local part = data.part
+				local bodyPos = data.bodyPos
+				local bodyGyro = data.bodyGyro
+
+				if part and part.Parent then
+					local angle = time + (i * angleStep)
+					local newPos = head.Position + Vector3.new(
+						math.cos(angle) * radius, 
+						5,  -- Height above player
+						math.sin(angle) * radius
+					)
+
+					bodyPos.Position = newPos
+					bodyGyro.CFrame = CFrame.lookAt(newPos, head.Position)
+				end
+			end
+		end)
+	end
+
+	spinPartsAroundPlayer()
+
+end)
+
+Stop.MouseButton1Up:Connect(function()
+	x:Disconnect()
+	for _, part in pairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and not part.Anchored and not part:IsDescendantOf(character) then
+            local ignoredNames = {
+                ["Torso"] = true, ["Head"] = true, 
+                ["Right Arm"] = true, ["Left Arm"] = true, 
+                ["Right Leg"] = true, ["Left Leg"] = true, 
+                ["HumanoidRootPart"] = true
+            }
+            
+            if not ignoredNames[part.Name] then
+                -- Remove existing forces
+                for _, child in pairs(part:GetChildren()) do
+                    if child:IsA("BodyPosition") or child:IsA("BodyGyro") then
+                        child:Destroy()
+                    end
+                end
+			end
+		end
+	end
+end)
